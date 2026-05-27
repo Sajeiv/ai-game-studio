@@ -1,17 +1,21 @@
 # AI Game Studio — Project Context
 
 ## Vision
-An AI-powered game generation platform. Users describe a game in natural language, AI builds it automatically. Think RPG Maker but fully AI driven. No game development experience required.
+An AI-powered game generation platform. Users describe a game in natural
+language, AI builds it automatically. Think RPG Maker but fully AI driven.
+No game development experience required.
 
 ## Core Promise
 Talk to AI, get a playable game.
 
 ## Design Principles
-- Feature-based not game-type-based
+- Seed-based not feature-based — 14 universal primitives cover all 2D games
+- Engine-agnostic — seeds are behavioral descriptions, implementations are separate
+- Art-agnostic — art generation is pluggable, PixelLab is just one adapter
 - Surgical edits not full regeneration
 - Parallel generation wherever possible
 - Instant placeholder builds — playable in under a minute
-- Full history shown during refinement rounds
+- Silent error handling — users never see errors, validator fixes silently
 - Smart defaults — only pause for approval when it matters
 - Progressive onboarding — ask for accounts only when needed
 - Privacy first — no hardcoded paths or API keys ever
@@ -19,11 +23,37 @@ Talk to AI, get a playable game.
 ---
 
 ## Tech Stack
-- Godot 4 — game engine (plain text files, exports everywhere, free)
-- PixelLab API — AI pixel art generation
+- Godot 4 — current game engine (plain text files, exports everywhere, free)
+- PixelLab API — current art generation service
 - Claude Code — orchestrates the entire pipeline
 - pixellab-godot MCP — custom Node.js server, downloads assets locally
 - Node.js — runs MCP servers
+
+---
+
+## Architecture Overview
+
+The pipeline is split into three layers:
+
+```
+Layer 1 — Pipeline (engine agnostic)
+  Agents, skills, seed descriptions
+  Knows HOW to build any game
+  Never mentions Godot or PixelLab directly
+
+Layer 2 — Engine Adapters
+  Engine-specific implementations of seeds
+  Currently: Godot 4
+  Future: Unity, web, others
+
+Layer 3 — Art Adapters
+  Art service integrations
+  Currently: PixelLab, user upload
+  Future: other generators
+```
+
+Swapping engines = swap the engine adapter, nothing else changes
+Swapping art services = swap the art adapter, nothing else changes
 
 ---
 
@@ -33,47 +63,45 @@ Talk to AI, get a playable game.
 The brain. Runs first, runs last, supervises everything.
 - Interprets user prompt and reference images
 - Produces structured game spec JSON
-- Makes creative decisions when user doesn't specify
+- Makes creative decisions when user does not specify
 - Coordinates which agents run and in what order
 - Classifies change requests (immediate / preview / confirm)
 - Synthesizes feedback across refinement rounds
-- Reads MANIFEST.md to know available features
+- Reads seed descriptions to know what is available
 
 ### Agent 2 — Art Director
 Everything visual.
-- Generates sprites, tilesets, items, UI art via PixelLab
+- Generates sprites, tilesets, items, UI art via art adapter
 - Maintains visual consistency across all assets
 - Manages refinement history (all attempts kept)
 - Extracts color palette from reference images
 - Downloads all assets via pixellab-godot MCP
-- Passes style references to PixelLab correctly
+- Never hardcodes PixelLab — always goes through art adapter
 
 ### Agent 3 — Engineer
 Everything technical.
-- Reads feature library, picks correct modules
-- Generates new gimmick code when needed
-- Writes all GDScript files and scene files (.tscn)
-- Writes SpriteFrames resources (.tres)
-- Wires everything together correctly
-- Handles surgical edits — changes only what's needed
-- Reads existing Godot projects for import feature
+- Reads seed descriptions from pipeline/seeds/
+- Picks correct engine adapter (currently Godot)
+- Uses engine seeds as starting point, never generates from scratch
+- Combines seeds to build mechanics
+- Writes all scene files and project config
+- Handles surgical edits — changes only what is needed
 
 ### Agent 4 — Validator
-The safety net. Always runs before user sees anything.
+The safety net. Always runs silently before user sees anything.
 - Reads every generated file
-- Catches syntax errors before user runs the game
-- Checks cross-file dependencies
-- Verifies all referenced nodes exist in scenes
-- Fixes errors automatically where possible
-- Reports what was fixed and what needs manual attention
+- Fixes errors automatically — never reports them to user
+- If a file cannot be fixed, silently regenerates it from seed
+- Loops until everything is clean
+- User only ever sees: generating / ready
 
 ### Agent 5 — Producer
-The orchestrator. Manages flow between agents and user.
+The orchestrator.
 - Decides what to show user and when
 - Manages approval gates
-- Tracks PixelLab generation budget
-- Maintains conversation history and context
-- Coordinates parallel vs sequential agent execution
+- Tracks art generation budget
+- Maintains conversation history
+- Coordinates parallel vs sequential execution
 - Knows when to interrupt with preview vs proceed silently
 
 ---
@@ -84,111 +112,137 @@ Reusable capabilities any agent can call:
 - analyze_image — extract style, mood, palette from reference images
 - extract_game_spec — turn natural language into structured JSON
 - classify_change — immediate vs preview vs confirm
-- read_godot_project — parse existing project structure
-- generate_scene_file — write valid .tscn files
-- generate_spriteframes — write valid .tres SpriteFrames resources
-- validate_gdscript — check GDScript for common errors
+- read_project — parse existing project structure
+- generate_scene — write valid engine scene files
+- validate_code — check generated code for errors
 - surgical_edit — modify specific files without touching others
-- export_godot — trigger Godot export to web/desktop builds
+- export_build — trigger engine export to web or desktop
 - write_game_page — generate title, description, cover art prompt
+
+---
+
+## Seed System
+
+### What seeds are
+14 universal behavioral primitives that cover every 2D game type.
+Seeds are NOT game mechanics — they are the atomic units mechanics are built from.
+
+### Seed descriptions (engine agnostic)
+Live in pipeline/seeds/ as .md files.
+Describe behavior only — no engine-specific code.
+Each description covers:
+- What this seed does
+- What inputs it accepts
+- What outputs and signals it emits
+- What it never does
+- One usage example
+
+### Engine implementations
+Live in engines/{engine}/seeds/ as code files.
+Each implementation:
+- Under 50 lines
+- Does exactly one thing
+- No dependencies on other seeds
+- Zero errors guaranteed in target engine version
+- Fully configurable via exported variables
+
+### The 14 seeds
+
+Tier 1 — Universal (every game)
+- player_controller — handles player input and basic control
+- camera — follows subject, handles bounds and zoom
+- scene_manager — transitions, loading, screen management
+- game_state — win/lose/pause/play, global flags
+
+Tier 2 — Very Common (most games)
+- autonomous_mover — moves without player input, configurable behavior
+- interactable — responds when player engages with it
+- resource — tracked value with min/max (health, score, ammo, currency)
+- audio_manager — plays sounds and music, handles volume
+- ui_element — displays any information on screen
+
+Tier 3 — Common (many games)
+- detector — notices proximity, entry, or line of sight
+- spawner — creates instances at runtime on demand or on timer
+- projectile — travels in a direction, hits something, disappears
+- dialogue — presents text, waits for player response
+- timer_event — triggers something after elapsed time
+
+### How mechanics are built from seeds
+
+Monster that chases player:
+  autonomous_mover + detector + game_state
+
+Locked door:
+  interactable + game_state + scene_manager
+
+Shop NPC:
+  interactable + dialogue + resource
+
+Platformer enemy:
+  autonomous_mover + detector + projectile
+
+Bullet hell boss:
+  autonomous_mover + spawner + projectile + timer_event + resource
+
+Collectible coin:
+  interactable + resource + audio_manager
+
+Dialogue NPC:
+  interactable + dialogue
+
+Checkpoint:
+  detector + game_state + scene_manager
+
+Turret:
+  detector + projectile + timer_event
 
 ---
 
 ## Approval Flow
 
-### Three change types:
+### Three change types
 - Immediate — value tweaks, text changes — applies instantly, no approval
 - Preview first — art generation, new levels — user sees before applying
-- Explicit confirm — destructive changes like start over — always ask
+- Explicit confirm — destructive changes — always ask first
 
-### Preview flow:
-Generate → Show all previous attempts → Directed feedback → Regenerate →
-Repeat until approved → Apply
+### Preview flow
+Generate → show all previous attempts → directed feedback → regenerate →
+repeat until approved → apply
 
-### Key rule:
-Never lose previous attempts. User can always go back to Round 1.
-
----
-
-## Feature Library Structure
-
-```
-features/
-  player/
-    topdown_movement.gd        (verified)
-    platformer_movement.gd
-    pointandclick.gd
-  enemies/
-    chaser.gd                  (verified)
-    patrol_only.gd
-    ranged_shooter.gd
-    boss_enemy.gd
-  interaction/
-    inventory.gd               (verified)
-    pickup_item.gd             (verified)
-    locked_door.gd             (verified)
-    hiding_spot.gd             (verified)
-    dialogue.gd
-    npc_interact.gd
-    switch_trigger.gd
-  combat/
-    no_combat.gd               (verified)
-    melee_combat.gd
-    ranged_combat.gd
-    turn_based_combat.gd
-  ui/
-    hud.gd                     (verified)
-    game_over.gd               (verified)
-    win_screen.gd              (verified)
-    intro_screen.gd            (verified)
-    dialogue_box.gd
-    inventory_ui.gd
-    health_bar.gd
-  systems/
-    game_manager.gd            (verified)
-    save_load.gd
-    day_night_cycle.gd
-    camera_shake.gd
-    scene_transition.gd
-  gimmicks/
-    stamina.gd                 (verified)
-    hearts.gd
-    companions.gd
-    time_rewind.gd
-```
+### Key rules
+- Never lose previous attempts — user can always go back
+- User never sees error messages — validator handles silently
+- User only sees: generating / ready
 
 ---
 
-## Pipeline Flow
+## Art Adapter System
 
-```
-User prompt + optional reference images
-         |
-Producer: starts pipeline
-         |
-Director: analyzes input → game spec JSON
-         |
-Producer: runs Art Director + Engineer in PARALLEL
-         |
-Art Director: generates assets (5-10 mins async)
-Engineer: builds placeholder game (1-2 mins)
-         |
-Producer: placeholder ready → show user immediately
-          art finishes → swap in automatically
-         |
-Validator: checks everything → fixes errors
-         |
-Producer: game is ready → user plays
-         |
-User requests change
-         |
-Director: classifies change type
-         |
-Immediate → Engineer edits → Validator checks → done
-Preview   → Art Director generates → shows history →
-            user refines → approved → Engineer applies
-Confirm   → ask user → confirmed → agents execute
-```
+Art adapters live in art/{service}/adapter.md
+Current adapters:
+- art/pixellab/ — PixelLab API integration
+- art/upload/ — user provided sprites
+
+Adding a new art service = add a new folder, implement the adapter interface
+The Art Director never calls PixelLab directly — always through the adapter
+
+---
+
+## Engine Adapter System
+
+Engine adapters live in engines/{engine}/
+Current engines:
+- engines/godot/ — Godot 4.6.3
+
+Each engine folder contains:
+- seeds/ — implementations of all 14 seeds for that engine
+- builder.md — how to assemble a complete project in this engine
+- scene_format.md — how scene files work in this engine
+- export.md — how to export builds in this engine
+
+Adding a new engine = add a new folder, implement all 14 seeds
+The Engineer never writes Godot-specific code directly — always uses engine adapter
 
 ---
 
@@ -209,23 +263,23 @@ Each published game gets:
 - Play count and remix count
 - Three visibility tiers: Private / Public / Open (remixable)
 
-### Remix system:
+### Remix system
 - Only open games can be remixed
-- Remixes start from the game spec JSON, not the art
-- Fresh assets generated using remixer's PixelLab credits
-- Attribution chain maintained: "Remixed from X by Y"
+- Remixes start from the game spec JSON, not the art or code
+- Fresh assets generated using remixer's credits
+- Attribution chain maintained
 
 ---
 
 ## Reference Image Support
 Users can provide:
 - Mood reference — overall vibe and atmosphere
-- Style reference — passed directly to PixelLab for art generation
+- Style reference — passed to art adapter for generation guidance
 - Character reference — guides character sprite generation
 - Map reference — guides level layout decisions
 - Color palette — extracted and applied to all assets
-- Existing sprites — bypass PixelLab entirely
-- Existing Godot project — pipeline reads and extends it
+- Existing sprites — bypass art generation entirely
+- Existing project — pipeline reads and extends it
 
 ---
 
@@ -236,40 +290,45 @@ Users can provide:
 
 ---
 
-## Community Module Submissions
+## Community Contributions
+Community can submit:
+- New seed implementations for existing engines
+- New engine adapters
+- New art adapters
+- Bug fixes to existing seeds
 
-```
-features/
-  verified/    — reviewed and merged by maintainer
-  submitted/   — community PRs, pending review
-```
+Community cannot submit:
+- Changes to seed descriptions (pipeline/seeds/) — maintained by core team
+- Changes to agent prompts — private
+- Changes to skills — private
 
-### Automated checks before any PR reaches review:
-- GDScript syntax valid
+Automated checks on all PRs:
+- Code syntax valid
 - No OS.execute() calls
-- No FileAccess outside project folder
+- No file system access outside project
 - No HTTP requests
-- No naming conflicts with verified modules
+- No naming conflicts
 - Documentation headers present
 
 ---
 
 ## Open Source Policy
+Public (this repo):
+- Seed descriptions (pipeline/seeds/)
+- Engine implementations (engines/)
+- Art adapters (art/)
+- Tools (pixellab-mcp, setup)
+- Presets
+- Documentation
 
-### Public (in this repo)
-- All verified features — the building blocks
-- Presets — feature combination configs
-- Tools — pixellab-mcp, setup scripts
-- Documentation and schemas
-- GitHub Actions workflows
+Private (not in this repo):
+- Agent system prompts (pipeline/agents/)
+- Skills implementation (pipeline/skills/)
+- Pipeline orchestration logic
+- Hosted backend code
 
-### Private (not in this repo)
-- Agent system prompts — the intelligence layer
-- Pipeline orchestration logic — how agents coordinate
-- Skills implementation — how skills work internally
-- Any hosted platform backend code
-
-The features are the community hook. The pipeline is the moat.
+The seeds and engines are the community hook.
+The pipeline intelligence is the moat.
 
 ---
 
@@ -279,7 +338,6 @@ The features are the community hook. The pipeline is the moat.
 - Everything configurable via .env
 - .env is always gitignored
 - claude_desktop_config.json always gitignored
-- Scan before every push: no personal paths, no keys
 
 ## Environment Variables Required
 ```
@@ -295,66 +353,67 @@ GAME_STUDIO_PATH=
 
 ```
 ai-game-studio/
-  features/
-    player/
-    enemies/
-    interaction/
-    combat/
-    ui/
-    systems/
-    gimmicks/
-    submitted/
+  pipeline/
+    seeds/              <- 14 engine-agnostic seed descriptions (.md)
+      tier1/
+      tier2/
+      tier3/
+    agents/             <- private, not in public repo
+    skills/             <- private, not in public repo
+
+  engines/
+    godot/
+      seeds/            <- 14 Godot 4 implementations (.gd)
+      builder.md        <- how to assemble a Godot project
+      scene_format.md   <- Godot scene file reference
+      export.md         <- how to export Godot builds
+
+  art/
+    pixellab/
+      adapter.md        <- PixelLab API integration spec
+    upload/
+      adapter.md        <- user upload handler spec
+
   presets/
     horror_escape.json
     rpg.json
-  pipeline/
-    agents/
-      director.md
-      art_director.md
-      engineer.md
-      validator.md
-      producer.md
-    skills/
-      analyze_image.md
-      extract_game_spec.md
-      classify_change.md
-      generate_scene_file.md
-      validate_gdscript.md
-      surgical_edit.md
-      export_godot.md
+    platformer.json
+    puzzle.json
+
   tools/
-    pixellab-mcp/
+    pixellab-mcp/       <- downloads PixelLab assets locally
     setup/
-      setup.bat
-  games/
+      setup.bat         <- Windows one-click install
+      setup.sh          <- Mac/Linux one-click install
+
+  games/                <- gitignored, generated games live here
+
   .github/
     workflows/
       validate_module.yml
+
   .env.example
   .gitignore
   README.md
-  CLAUDE.md
+  CLAUDE.md             <- this file
 ```
 
 ---
 
 ## Current Phase
-Phase 0 — Building the framework repo from scratch in Claude Code
+Phase 1 — Restructure repo to seed-based engine-agnostic architecture
 
 ## Next Steps
-1. Create full repo structure
-2. Port verified features from forest-game prototype
-3. Write all agent system prompts
-4. Write all skills
-5. Write pipeline presets
-6. Build pixellab-godot MCP
-7. End to end test: one prompt to playable horror escape game
-8. Push to GitHub
+1. Delete features/ folder
+2. Create pipeline/seeds/ with 14 .md descriptions
+3. Create engines/godot/seeds/ with 14 .gd implementations
+4. Create art/pixellab/adapter.md and art/upload/adapter.md
+5. Update README.md
+6. Commit and push to GitHub
+7. Test: one prompt generates a complete playable game end to end
 
 ## Prototype Reference
-A working horror escape prototype exists at:
-Godot/forest-game (in Documents)
-
-Verified features there can be copied directly into features/ here.
-That project proves the pipeline works. This repo is the clean framework
-built on top of those lessons.
+A working horror escape prototype exists locally in the Godot projects folder.
+It proved the pipeline concept works and provided the original verified scripts.
+The seeds in engines/godot/ are derived from that prototype but generalized
+to be reusable across any game type.
