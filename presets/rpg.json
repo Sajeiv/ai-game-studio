@@ -1,0 +1,27 @@
+{
+  "preset_name": "rpg",
+  "description": "Top-down RPG with exploration, NPC dialogue, inventory, and turn-based combat.",
+  "player": {
+    "movement": "topdown_movement"
+  },
+  "enemies": ["patrol_only", "chaser"],
+  "interaction": ["inventory", "pickup_item", "dialogue", "npc_interact"],
+  "combat": "turn_based_combat",
+  "ui": ["hud", "game_over", "win_screen", "intro_screen", "dialogue_box", "inventory_ui", "health_bar"],
+  "systems": ["game_manager", "save_load", "scene_transition"],
+  "gimmicks": ["hearts"],
+  "art_style": "classic 16-bit RPG pixel art, vibrant colors, top-down perspective",
+  "palette": [],
+  "levels": [
+    {
+      "name": "Town",
+      "description": "Starting village with NPCs, shops, and a quest giver."
+    },
+    {
+      "name": "Dungeon",
+      "description": "Underground dungeon with enemies, traps, and a boss chamber."
+    }
+  ],
+  "win_condition": "Defeat the dungeon boss",
+  "lose_condition": "Player health reaches zero"
+}

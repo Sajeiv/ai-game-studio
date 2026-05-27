@@ -1,0 +1,23 @@
+{
+  "preset_name": "horror_escape",
+  "description": "Top-down horror escape room. Player collects keys, avoids a chaser enemy, finds the exit.",
+  "player": {
+    "movement": "topdown_movement"
+  },
+  "enemies": ["chaser"],
+  "interaction": ["inventory", "pickup_item", "locked_door", "hiding_spot"],
+  "combat": "no_combat",
+  "ui": ["hud", "game_over", "win_screen", "intro_screen"],
+  "systems": ["game_manager"],
+  "gimmicks": ["stamina"],
+  "art_style": "dark pixel art, low saturation, horror atmosphere",
+  "palette": ["#0a0a0f", "#1a1a2e", "#16213e", "#e94560", "#f5a623"],
+  "levels": [
+    {
+      "name": "The House",
+      "description": "Abandoned house interior. Multiple rooms. Keys hidden in furniture. One chaser enemy."
+    }
+  ],
+  "win_condition": "Reach the exit door with all required keys",
+  "lose_condition": "Caught by the chaser enemy"
+}

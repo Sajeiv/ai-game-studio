@@ -1,0 +1,73 @@
+name: Validate Community Module
+
+on:
+  pull_request:
+    paths:
+      - "features/submitted/**"
+
+jobs:
+  validate:
+    name: Run module checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install gdtoolkit
+        run: pip install gdtoolkit
+
+      - name: Check GDScript syntax
+        run: |
+          for f in features/submitted/*.gd; do
+            echo "Checking $f"
+            gdparse "$f"
+          done
+
+      - name: Reject OS.execute() calls
+        run: |
+          if grep -r "OS\.execute(" features/submitted/; then
+            echo "FAIL: OS.execute() is not allowed in community modules."
+            exit 1
+          fi
+
+      - name: Reject FileAccess outside project folder
+        run: |
+          if grep -rE 'FileAccess\.open\s*\(\s*"(?!res://|user://)' features/submitted/; then
+            echo "FAIL: FileAccess paths must start with res:// or user://"
+            exit 1
+          fi
+
+      - name: Reject HTTP requests
+        run: |
+          if grep -rE "(HTTPRequest|http_request|HTTPClient)" features/submitted/; then
+            echo "FAIL: HTTP requests are not allowed in community modules."
+            exit 1
+          fi
+
+      - name: Check for documentation header
+        run: |
+          for f in features/submitted/*.gd; do
+            if ! head -5 "$f" | grep -q "# FEATURE:"; then
+              echo "FAIL: $f is missing a documentation header (# FEATURE: ...)."
+              exit 1
+            fi
+          done
+
+      - name: Check for naming conflicts with verified modules
+        run: |
+          for f in features/submitted/*.gd; do
+            name=$(basename "$f")
+            if find features/ -not -path "features/submitted/*" -name "$name" | grep -q .; then
+              echo "FAIL: $name conflicts with an existing verified module."
+              exit 1
+            fi
+          done
+
+      - name: All checks passed
+        run: echo "Module passed all automated checks."
