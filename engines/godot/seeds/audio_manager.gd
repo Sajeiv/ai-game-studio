@@ -47,7 +47,11 @@ func play_sfx(stream: AudioStream) -> void:
 	sfx_played.emit(stream.resource_path)
 
 func set_music_volume(db: float) -> void:
-	AudioServer.set_bus_volume_db(AudioServer.get_bus_index(music_bus), db)
+	var idx := AudioServer.get_bus_index(music_bus)
+	if idx != -1:
+		AudioServer.set_bus_volume_db(idx, db)
 
 func set_sfx_volume(db: float) -> void:
-	AudioServer.set_bus_volume_db(AudioServer.get_bus_index(sfx_bus), db)
+	var idx := AudioServer.get_bus_index(sfx_bus)
+	if idx != -1:
+		AudioServer.set_bus_volume_db(idx, db)

@@ -15,12 +15,15 @@ signal transition_finished(to_scene: String)
 var _overlay: ColorRect
 
 func _ready() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 100
+	add_child(layer)
 	_overlay = ColorRect.new()
 	_overlay.color = Color.BLACK
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_overlay.modulate.a = 0.0
-	add_child(_overlay)
+	layer.add_child(_overlay)
 
 func go_to(path: String, _payload: Dictionary = {}) -> void:
 	transition_started.emit(path)
