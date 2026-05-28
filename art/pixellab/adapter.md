@@ -50,19 +50,25 @@ args:
 
 All item and prop sprites (keys, chests, furniture, pickups, interactive objects) must use `create_map_object` instead of `generate`. This endpoint supports transparent backgrounds natively and applies style matching from a reference image automatically.
 
+**Via MCP tool** (preferred — supports style reference):
 ```
 tool: create_map_object
 args:
-  prompt: "{style_prefix}, key item, top-down view, transparent background"
-  style_reference_url: "<url of generated tileset>"
-  width: 32
-  height: 32
-  destination: "res://assets/sprites/items/key.png"
+  description: "{style_prefix}, key item, top-down view"
+  image_size: { width: 32, height: 32 }
+  style_image: "<base64 of generated tileset>"
 ```
 
+**Via REST API** (fallback — no style_image param):
+```
+POST /v2/map-objects
+{ "description": "{style_prefix}, key item, top-down view", "image_size": { "width": 32, "height": 32 } }
+```
+Poll `GET /v2/background-jobs/{background_job_id}` every 5 s until `status === "completed"`, then read `last_response.image` (plain base64, no data-URI prefix).
+
 Using `create_map_object` for non-tile assets ensures:
-- Transparent background without post-processing
-- Visual consistency with the tileset style
+- Transparent background without post-processing (always on, no flag needed)
+- Visual consistency with the tileset when `style_image` is passed via MCP
 - Correct depth and perspective for top-down placement
 
 ### Transparent backgrounds
