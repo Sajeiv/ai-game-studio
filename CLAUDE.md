@@ -26,8 +26,19 @@ Talk to AI, get a playable game.
 - Godot 4 — current game engine (plain text files, exports everywhere, free)
 - PixelLab API — current art generation service
 - Claude Code — orchestrates the entire pipeline
-- pixellab-godot MCP — custom Node.js server, downloads assets locally
-- Node.js — runs MCP servers
+- PixelLab MCP (native) — official HTTP MCP server, no local install required
+- Node.js — runs any custom MCP servers
+
+## Setup
+
+Add the native PixelLab MCP to Claude Code:
+
+```
+claude mcp add pixellab https://api.pixellab.ai/mcp -t http -H "Authorization: Bearer YOUR_KEY"
+```
+
+Replace `YOUR_KEY` with the value of `PIXELLAB_API_KEY` from your `.env` file.
+This gives the Art Director direct access to the PixelLab API docs and tools.
 
 ---
 
@@ -214,6 +225,22 @@ repeat until approved → apply
 - Never lose previous attempts — user can always go back
 - User never sees error messages — validator handles silently
 - User only sees: generating / ready
+
+---
+
+## Pipeline Flow
+
+The correct generation order for every new game. Do not skip or reorder steps.
+
+1. **Visual direction first** — user provides reference images or approves a generated mood board before any code is written
+2. **Art Director generates tileset only** — user approves the tileset; this image becomes the style reference for all subsequent assets
+3. **Engineer builds game logic with placeholder art** — fully playable build using solid-color placeholders, no blocking on real art
+4. **Art Director generates all remaining assets** — characters, items, props, UI — all using the approved tileset as `style_reference_url`
+5. **Validator runs silently** — fixes any file errors before user sees anything
+6. **User playtests** — first time user sees real art is in a working build
+
+Nothing in step 4 begins before step 2 is approved.
+Nothing in step 3 blocks on step 4.
 
 ---
 

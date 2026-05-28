@@ -26,6 +26,8 @@ Every art adapter must implement these operations:
 
 ## PixelLab implementation
 
+> **Docs:** Always include `@ https://api.pixellab.ai/mcp/docs` in Art Director prompts so the agent has access to the current API specification.
+
 ### Authentication
 
 The `PIXELLAB_API_KEY` environment variable must be set. Never hardcode it.
@@ -44,13 +46,38 @@ args:
   destination: "res://assets/sprites/player.png"
 ```
 
+### Items and props
+
+All item and prop sprites (keys, chests, furniture, pickups, interactive objects) must use `create_map_object` instead of `generate`. This endpoint supports transparent backgrounds natively and applies style matching from a reference image automatically.
+
+```
+tool: create_map_object
+args:
+  prompt: "{style_prefix}, key item, top-down view, transparent background"
+  style_reference_url: "<url of generated tileset>"
+  width: 32
+  height: 32
+  destination: "res://assets/sprites/items/key.png"
+```
+
+Using `create_map_object` for non-tile assets ensures:
+- Transparent background without post-processing
+- Visual consistency with the tileset style
+- Correct depth and perspective for top-down placement
+
+### Transparent backgrounds
+
+Every sprite prompt must explicitly include `transparent background`. This applies to every `generate`, `generate_sprite_sheet`, and `create_map_object` call. Never generate sprites with solid or white backgrounds.
+
 ### Style consistency
 
-For each game, the Art Director maintains a style prompt prefix extracted from the first reference image or game spec. This prefix is prepended to every generate call:
+For each game, the Art Director maintains a style prompt prefix extracted from the first reference image or game spec. This prefix is **identical across every generate call in the game** — characters, items, props, tilesets, UI elements. Never use a different style prefix for different asset types in the same game.
 
 ```
 style_prefix: "16-bit pixel art, limited palette, top-down view, dark and moody"
 ```
+
+**Tileset-as-reference rule:** When generating any non-tile asset (characters, items, props, UI), pass the generated tileset image URL as `style_reference_url`. This is the strongest single tool for visual consistency across a game. Generate the tileset first — all other assets follow from it.
 
 ### Sprite sheets
 
