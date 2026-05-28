@@ -153,6 +153,9 @@ Pass a preset name to the Director to skip the spec-building step.
 
 ## Contributing
 
+> **Branch policy:** All work happens on `dev`. Never push directly to `main`.
+> Open a PR from `dev` (or a feature branch off `dev`) — `main` is merged into only after review.
+
 Community can contribute:
 - New seed implementations for existing engines (`engines/`)
 - New engine adapters (new folder under `engines/`)
