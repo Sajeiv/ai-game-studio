@@ -474,3 +474,15 @@ Rules learned from building The Three Keys. Enforced on all future games.
 - Never use signal-based animation driving (`moved`, `stopped` signals)
 - Store the last animation name in a variable; only call `play()` when it changes
 - This prevents per-frame restarts and eliminates flicker from repeated `play()` calls
+
+---
+
+## Git Workflow
+
+- Default branch is `dev` — all work happens here
+- `main` is for stable releases only — never push directly to `main`
+- Always pull before starting work: `git checkout dev && git pull`
+- Commit frequently with descriptive messages
+- To release a stable version: `git checkout main && git merge dev && git push && git checkout dev`
+
+When generating games or making any changes, always confirm you are on the `dev` branch before committing.
