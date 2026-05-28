@@ -417,3 +417,33 @@ A working horror escape prototype exists locally in the Godot projects folder.
 It proved the pipeline concept works and provided the original verified scripts.
 The seeds in engines/godot/ are derived from that prototype but generalized
 to be reusable across any game type.
+
+---
+
+## Pipeline Discipline
+
+Rules learned from building The Three Keys. Enforced on all future games.
+
+### Script placement
+- Never write temporary or generation scripts to the repo root
+- All game-specific scripts go in `games/{game-title}/tools/`
+- Temporary generation scripts are deleted after use, not committed
+
+### TileMap
+- TileMap must always use 2 layers minimum
+  - Layer 0 "Ground" — ground tile, no collision
+  - Layer 1 "Trees" / "Walls" — obstacle tile, collision enabled on every tile
+- TileSet physics layer must be added to the TileSet **before** calling `get_tile_data()` or `add_collision_polygon()` — configuring collision before `add_source()` silently no-ops
+- Engineer follows genre-specific TileMap rules from `engines/godot/builder.md`
+
+### Character sprites
+- Character sprites must always include walk animations: 4 directions × 4 frames minimum
+  - `walk_down_1..4`, `walk_up_1..4`, `walk_left_1..4`, `walk_right_1..4`
+  - Plus an `idle` frame (at minimum one frame from the base sprite)
+- Art Director follows genre-specific animation requirements from `art/pixellab/adapter.md`
+
+### AnimatedSprite2D driving
+- Always use `_physics_process` with direct `Input.get_axis()` reading
+- Never use signal-based animation driving (`moved`, `stopped` signals)
+- Store the last animation name in a variable; only call `play()` when it changes
+- This prevents per-frame restarts and eliminates flicker from repeated `play()` calls

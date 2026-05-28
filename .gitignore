@@ -13,6 +13,10 @@ export_presets.cfg
 # Generated games output
 games/*/
 
+# Game-specific generation tools (contain API calls, not source)
+*.mjs
+games/*/tools/
+
 # Node.js
 node_modules/
 npm-debug.log*

@@ -78,6 +78,62 @@ If a PixelLab call fails, the Art Director silently retries once with a simplifi
 
 ---
 
+## Top-down character animation requirements
+
+### Minimum frame set
+
+Every top-down playable character must ship with:
+
+| Animation | Frames | Loop |
+|-----------|--------|------|
+| `idle` | 1 (base sprite) | false |
+| `walk_down` | 4 | true |
+| `walk_up` | 4 | true |
+| `walk_left` | 4 | true |
+| `walk_right` | 4 | true |
+
+Total: 17 assets per character (1 idle + 16 walk frames).
+
+### File naming convention
+
+```
+assets/sprites/player.png               ← idle (base sprite)
+assets/sprites/player/walk_down_1.png
+assets/sprites/player/walk_down_2.png
+assets/sprites/player/walk_down_3.png
+assets/sprites/player/walk_down_4.png
+assets/sprites/player/walk_up_1..4.png
+assets/sprites/player/walk_left_1..4.png
+assets/sprites/player/walk_right_1..4.png
+```
+
+### Prompt structure per frame
+
+Use a consistent style prefix across all frames so they read as the same character:
+
+```
+{style_prefix}, character facing {direction}, {foot_position}, walk cycle frame {n} of 4
+```
+
+Direction descriptions:
+- `walk_down` — "facing south toward camera"
+- `walk_up` — "facing north, back to camera"
+- `walk_left` — "side profile facing left"
+- `walk_right` — "side profile facing right"
+
+Foot positions cycle: right foot forward → feet neutral → left foot forward → feet neutral
+
+### Size constraint
+
+PixelLab API minimum canvas is 32×32. All character sprites must be 32×32 or larger.
+16×16 characters are not supported — generate at 32×32 and scale in the engine if needed.
+
+### Generation order
+
+Generate all frames with `Promise.allSettled()` in batches of 4 (one direction per batch) to stay within API rate limits while parallelising within each direction.
+
+---
+
 ## Adding a different art service
 
 1. Create `art/<service-name>/adapter.md`
