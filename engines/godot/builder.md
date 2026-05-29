@@ -29,14 +29,48 @@ Set the main scene, window size, and pixel art settings:
 
 ```
 [display]
-window/size/viewport_width=320
-window/size/viewport_height=180
-window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
+window/size/viewport_width=1280
+window/size/viewport_height=720
 
 [rendering]
 textures/canvas_textures/default_texture_filter=0
 ```
+
+**Never set `window/stretch/mode` or `window/stretch/aspect`** — these shrink the effective world space and cause HUD elements to appear at wrong sizes. Let Godot default to no stretching.
+
+### Viewport size rules
+
+| Game type | Viewport | Reason |
+|-----------|----------|--------|
+| Top-down / RPG / puzzle | 1280 × 720 | Standard HD; Camera2D zoom handles visible area |
+| Pixel art (explicit low-res look) | 320 × 180 + stretch canvas_items | Only when pixel art look is the deliberate art direction |
+
+Default to **1280 × 720** unless the game spec explicitly calls for a low-res pixel art aesthetic.
+
+### Camera zoom rules
+
+Camera zoom = world pixels visible per screen pixel. **Higher zoom = fewer world pixels visible (zoomed in).**
+
+| Goal | zoom value |
+|------|-----------|
+| See the entire 960 × 640 world in a 1280 × 720 viewport | `Vector2(0.75, 0.75)` |
+| Typical top-down RPG (see ~850 × 480 of world) | `Vector2(1.5, 1.5)` |
+| Tight follow camera (see ~640 × 360 of world) | `Vector2(2.0, 2.0)` |
+
+Formula: `visible_world_width = viewport_width / zoom_x`
+
+For a 960 × 640 world with 1280 × 720 viewport:
+- zoom=1.5 → player sees ~853 × 480 (world partially off-screen — player must explore)
+- zoom=0.75 → entire world fits on screen at once
+
+### HUD sizing rules (1280 × 720 viewport)
+
+| Element | Minimum size | Font size |
+|---------|-------------|-----------|
+| Dialogue box label | `Vector2(1000, 100)` | default (scales with box) |
+| HUD counter / score | N/A | 20 |
+| Intro / hint text | N/A | 14–16 |
+| Win screen title | N/A | 48+ |
 
 Register autoload singletons:
 

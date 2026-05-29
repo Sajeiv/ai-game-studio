@@ -232,15 +232,18 @@ repeat until approved → apply
 
 The correct generation order for every new game. Do not skip or reorder steps.
 
-1. **Visual direction first** — user provides reference images or approves a generated mood board before any code is written
-2. **Art Director generates tileset only** — user approves the tileset; this image becomes the style reference for all subsequent assets
-3. **Engineer builds game logic with placeholder art** — fully playable build using solid-color placeholders, no blocking on real art
+1. **Engineer builds game logic with placeholder art** — fully playable build using solid-color placeholders, no blocking on real art
+2. **Visual direction** — user provides reference images or approves a generated mood board before any real art is generated
+3. **Art Director generates tileset only** — user approves the tileset; this image becomes the style reference for all subsequent assets
 4. **Art Director generates all remaining assets** — characters, items, props, UI — all using the approved tileset as `style_reference_url`
-5. **Validator runs silently** — fixes any file errors before user sees anything
-6. **User playtests** — first time user sees real art is in a working build
+5. **Validator runs silently** — two sub-steps:
+   - **5a. Script check** — runs each scene via `godot --log-file`, iterates fixing until zero SCRIPT ERRORs across all scenes.
+   - **5b. AI playtest** — TBD (vision-based automated playthrough; currently manual user playtest instead).
+6. **User playtests** — Validator launches the game window for the user. User never opens Godot themselves, and never sees a broken build.
 
-Nothing in step 4 begins before step 2 is approved.
-Nothing in step 3 blocks on step 4.
+Nothing in step 4 begins before step 3 is approved.
+Nothing in step 2 begins before step 1 is complete.
+Nothing in step 6 begins before step 5b completes a full clean playthrough.
 
 ---
 

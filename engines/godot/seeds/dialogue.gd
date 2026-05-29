@@ -50,16 +50,18 @@ func _show_line(i: int) -> void:
 	_tween.finished.connect(func(): _typing = false)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not _panel.visible or not event.is_action_pressed(advance_action):
+	if not _panel.visible:
+		return
+	if not event.is_action_pressed(advance_action):
 		return
 	if _typing:
 		if _tween: _tween.kill()
 		_label.text = _full_text
 		_typing = false
-		return
-	_index += 1
-	if _index >= _lines.size():
-		_panel.visible = false
-		dialogue_finished.emit()
 	else:
-		_show_line(_index)
+		_index += 1
+		if _index >= _lines.size():
+			_panel.visible = false
+			dialogue_finished.emit()
+		else:
+			_show_line(_index)
