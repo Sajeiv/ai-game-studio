@@ -236,11 +236,12 @@ The correct generation order for every new game. Do not skip or reorder steps.
 2. **Visual direction** — user provides reference images or approves a generated mood board before any real art is generated
 3. **Art Director generates tileset only** — user approves the tileset; this image becomes the style reference for all subsequent assets
 4. **Art Director generates all remaining assets** — characters, items, props, UI — all using the approved tileset as `style_reference_url`
-5. **Validator runs silently** — fixes any file errors before user sees anything
-6. **User playtests** — first time user sees real art is in a working build
+5. **Validator runs silently** — reads every generated file, runs each scene via `godot --log-file` to catch runtime script errors, and iterates fixing until all scenes are error-free. User never sees errors.
+6. **User playtests** — Validator launches the game window for the user. User never opens Godot themselves.
 
 Nothing in step 4 begins before step 3 is approved.
 Nothing in step 2 begins before step 1 is complete.
+Nothing in step 6 begins before step 5 produces a clean run on all scenes.
 
 ---
 
