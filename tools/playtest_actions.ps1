@@ -95,6 +95,8 @@ public static class PlaytestWin32 {
     [DllImport("user32.dll")] public static extern bool AttachThreadInput(int a, int b, bool attach);
     [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, int msg, int wp, uint lp);
     [DllImport("user32.dll")] public static extern IntPtr SendMessageW(IntPtr h, int msg, IntPtr wp, IntPtr lp);
+    [DllImport("user32.dll")] public static extern uint MapVirtualKey(uint uCode, uint uMapType);
+    const uint MAPVK_VK_TO_VSC = 0;
     [DllImport("gdi32.dll")]  public static extern IntPtr CreateCompatibleDC(IntPtr hdc);
     [DllImport("gdi32.dll")]  public static extern IntPtr CreateCompatibleBitmap(IntPtr hdc, int w, int h);
     [DllImport("gdi32.dll")]  public static extern IntPtr SelectObject(IntPtr hdc, IntPtr obj);
@@ -119,6 +121,17 @@ public static class PlaytestWin32 {
 
     static bool IsExt(int vk) { return vk==0x25||vk==0x26||vk==0x27||vk==0x28||vk==0xA0; }
 
+    static uint ScanCode(int vk) { return MapVirtualKey((uint)vk, MAPVK_VK_TO_VSC); }
+
+    static uint LParamDn(int vk) {
+        uint sc = ScanCode(vk);
+        return 0x00000001u | (sc << 16) | (IsExt(vk) ? 0x01000000u : 0u);
+    }
+    static uint LParamUp(int vk) {
+        uint sc = ScanCode(vk);
+        return 0xC0000001u | (sc << 16) | (IsExt(vk) ? 0x01000000u : 0u);
+    }
+
     static void Focus(IntPtr hwnd) {
         int pid; int tid = GetWindowThreadProcessId(hwnd, out pid);
         int me = GetCurrentThreadId();
@@ -132,11 +145,9 @@ public static class PlaytestWin32 {
     public static void HoldKey(long hwndL, int vk, int ms) {
         var hwnd = new IntPtr(hwndL);
         Focus(hwnd);
-        uint dn = 0x00000001u | (IsExt(vk) ? 0x01000000u : 0u);
-        uint up = 0xC0000001u | (IsExt(vk) ? 0x01000000u : 0u);
-        PostMessage(hwnd, WM_KEYDOWN, vk, dn);
+        PostMessage(hwnd, WM_KEYDOWN, vk, LParamDn(vk));
         System.Threading.Thread.Sleep(ms);
-        PostMessage(hwnd, WM_KEYUP,   vk, up);
+        PostMessage(hwnd, WM_KEYUP,   vk, LParamUp(vk));
     }
 
     public static void PressKey(long hwndL, int vk) {
@@ -147,11 +158,9 @@ public static class PlaytestWin32 {
         AttachThreadInput(me, tid, true);
         SetForegroundWindow(hwnd);
         System.Threading.Thread.Sleep(100);
-        uint dn = 0x00000001u | (IsExt(vk) ? 0x01000000u : 0u);
-        uint up = 0xC0000001u | (IsExt(vk) ? 0x01000000u : 0u);
-        SendMessageW(hwnd, WM_KEYDOWN, new IntPtr(vk), new IntPtr((long)dn));
+        SendMessageW(hwnd, WM_KEYDOWN, new IntPtr(vk), new IntPtr((long)LParamDn(vk)));
         System.Threading.Thread.Sleep(80);
-        SendMessageW(hwnd, WM_KEYUP,   new IntPtr(vk), new IntPtr((long)up));
+        SendMessageW(hwnd, WM_KEYUP,   new IntPtr(vk), new IntPtr((long)LParamUp(vk)));
         System.Threading.Thread.Sleep(120);
         AttachThreadInput(me, tid, false);
     }
