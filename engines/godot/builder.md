@@ -189,3 +189,41 @@ Player `CharacterBody2D` uses Godot defaults (`collision_layer = 1`, `collision_
 - Gate / exit opening must match exactly: gate pixel position ÷ tile size = tile columns to leave clear
 - World boundary `StaticBody2D` walls (left, right, bottom) are kept alongside the TileMap — they are the hard fallback if tile collision is ever reconfigured
 - Generate the tile mask from a `PackedByteArray` (`ROWS × COLS`) and iterate once to call `set_cell()` — avoids nested array allocation
+
+---
+
+## Grid-based push mechanics (Sokoban / puzzle)
+
+Use **`StaticBody2D` + programmatic `position =`**, not `RigidBody2D`, for pushable objects in grid-based puzzle games.
+
+### Why not RigidBody2D
+
+Setting `position` directly on a `RigidBody2D` conflicts with its physics simulation. The PhysicsServer still holds the body at the old position until the next physics tick, so the visual teleports while the collision stays behind — producing a visible ghost at the previous tile.
+
+### Correct pattern
+
+```gdscript
+# Pushable object node type
+[node name="Relic1" type="StaticBody2D" groups=["relic"]]
+
+# Move it by setting position directly in a glue script
+relic.position = Vector2(col * TILE_SIZE + TILE_SIZE / 2.0, row * TILE_SIZE + TILE_SIZE / 2.0)
+```
+
+The glue script (`_physics_process`) reads input direction, computes the destination tile, checks a wall-set Dictionary for blockers, then sets `position`. No physics forces involved.
+
+### Seal / pressure-plate detection
+
+Do **not** rely on `body_entered` / `body_exited` signals from Area2D when objects are moved by `position =`. `StaticBody2D` moved this way does not reliably fire those signals. Instead, after every push, compare tile coordinates directly:
+
+```gdscript
+func _update_plate_states() -> void:
+    for plate in plates:
+        var plate_tile := _world_to_tile(plate.position)
+        if _relic_grid.has(plate_tile):
+            _activate_plate(plate)
+        else:
+            _deactivate_plate(plate)
+```
+
+Keep a `_relic_grid: Dictionary` (Vector2i → Node2D) as the authoritative source of relic positions. Update it on every push before calling `_update_plate_states()`.
