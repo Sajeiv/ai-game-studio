@@ -227,3 +227,151 @@ func _update_plate_states() -> void:
 ```
 
 Keep a `_relic_grid: Dictionary` (Vector2i → Node2D) as the authoritative source of relic positions. Update it on every push before calling `_update_plate_states()`.
+
+---
+
+## Platformer genre — player physics
+
+The `player_controller` seed handles top-down movement. For a platformer, extend it and override `_physics_process` to add gravity, coyote time, and a jump buffer.
+
+### Required exports
+
+```gdscript
+@export var jump_force: float = -480.0
+@export var gravity:    float = 900.0
+```
+
+### Coyote time + jump buffer
+
+```gdscript
+const COYOTE_TIME := 0.1   # stays jumpable briefly after walking off a ledge
+const JUMP_BUFFER := 0.1   # remembers a jump press briefly before landing
+
+var _coyote_timer:      float = 0.0
+var _jump_buffer_timer: float = 0.0
+var _was_on_floor:      bool  = false
+
+func _physics_process(delta: float) -> void:
+    var on_floor := is_on_floor()
+
+    if on_floor:
+        _coyote_timer = COYOTE_TIME
+    else:
+        _coyote_timer = maxf(_coyote_timer - delta, 0.0)
+
+    if Input.is_action_just_pressed("ui_accept"):
+        _jump_buffer_timer = JUMP_BUFFER
+    else:
+        _jump_buffer_timer = maxf(_jump_buffer_timer - delta, 0.0)
+
+    if not on_floor:
+        velocity.y += gravity * delta
+
+    if _jump_buffer_timer > 0.0 and _coyote_timer > 0.0:
+        velocity.y = jump_force
+        _coyote_timer = 0.0
+        _jump_buffer_timer = 0.0
+
+    velocity.x = Input.get_axis(input_left, input_right) * speed
+    move_and_slide()
+    _update_anim()
+```
+
+### Platformer animations
+
+Platformer uses `idle`, `run`, `jump` + `flip_h` — not 4-directional walk animations:
+
+```gdscript
+func _update_anim() -> void:
+    var anim := "idle"
+    if not is_on_floor():
+        anim = "jump"
+    elif absf(velocity.x) > 1.0:
+        anim = "run"
+    if anim != _last_anim:
+        _last_anim = anim
+        _body.play(anim)
+    if velocity.x != 0.0:
+        _body.flip_h = velocity.x < 0.0
+```
+
+Required SpriteFrames animations: `idle` (1 frame, no loop), `run` (4 frames, loop), `jump` (1 frame, no loop).
+
+---
+
+## Platformer genre — enemy patrol with gravity
+
+The `autonomous_mover` seed does not simulate gravity. For a platformer enemy, extend it and completely override `_physics_process`.
+
+### Gravity + patrol bounds
+
+```gdscript
+@export var gravity:           float = 900.0
+@export var patrol_half_range: float = 96.0
+
+var _patrol_min_x: float
+var _patrol_max_x: float
+
+func _ready() -> void:
+    super._ready()
+    # Capture bounds as fixed world-space values at spawn time.
+    # Do NOT use to_global(waypoints[i]) for patrol bounds —
+    # it recalculates relative to current position each frame,
+    # so the target always moves with the enemy and is never reached.
+    _patrol_min_x = global_position.x - patrol_half_range
+    _patrol_max_x = global_position.x + patrol_half_range
+    _set_dir(Vector2.RIGHT)
+
+func _physics_process(delta: float) -> void:
+    if not is_on_floor():
+        velocity.y += gravity * delta
+    else:
+        velocity.y = 0.0
+
+    if global_position.x <= _patrol_min_x:
+        _set_dir(Vector2.RIGHT)
+    elif global_position.x >= _patrol_max_x:
+        _set_dir(Vector2.LEFT)
+
+    velocity.x = _dir.x * speed
+    move_and_slide()
+
+    # Reverse on wall collision (covers unexpected obstacles mid-patrol)
+    for i in get_slide_collision_count():
+        if absf(get_slide_collision(i).get_normal().x) > 0.5:
+            _set_dir(Vector2(-_dir.x, 0.0))
+            break
+
+    _sprite.flip_h = _dir.x < 0.0
+```
+
+---
+
+## Platformer genre — TileMap rules
+
+### Layer structure
+
+Platformers use a **single TileMap layer** with two tile sources:
+
+| Source ID | Tile | Collision |
+|-----------|------|-----------|
+| 0 | Ground / floor tiles | Full-tile polygon |
+| 1 | Floating platform tiles | Full-tile polygon |
+
+Unlike top-down maps, both sources are solid — there is no ground-without-collision layer.
+
+### TileSet setup order
+
+Same rule as top-down: register the source **before** calling `get_tile_data()`:
+
+```gdscript
+src.create_tile(Vector2i(0, 0))
+ts.add_source(src, SOURCE_ID)             # register first
+var td := src.get_tile_data(Vector2i(0, 0), 0)
+td.add_collision_polygon(0)               # then configure collision
+td.set_collision_polygon_points(0, 0, col_poly)
+```
+
+### Camera for wide platformer levels
+
+Wide levels (100+ tiles) should set `use_bounds = true` on the camera seed so the view clamps to world edges and never shows the empty void beyond the level.
