@@ -54,6 +54,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not event.is_action_pressed(advance_action):
 		return
+	get_viewport().set_input_as_handled()
 	if _typing:
 		if _tween: _tween.kill()
 		_label.text = _full_text

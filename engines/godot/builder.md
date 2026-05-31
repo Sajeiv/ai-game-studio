@@ -375,3 +375,52 @@ td.set_collision_polygon_points(0, 0, col_poly)
 ### Camera for wide platformer levels
 
 Wide levels (100+ tiles) should set `use_bounds = true` on the camera seed so the view clamps to world edges and never shows the empty void beyond the level.
+
+---
+
+## Dialogue + interactable — input conflict
+
+The `dialogue` seed's `_unhandled_input` must call `get_viewport().set_input_as_handled()` after it processes the advance key. Without this, the same keypress that advances the dialogue also fires every in-range `interactable`'s `interacted` signal simultaneously, which calls `$Dialogue.start()` again and resets the dialogue to line 0. The player can never advance past the first line while standing near an object.
+
+The fix is already in `engines/godot/seeds/dialogue.gd`. Any copy of dialogue.gd in a game's `seeds/` folder must include it:
+
+```gdscript
+func _unhandled_input(event: InputEvent) -> void:
+    if not _panel.visible:
+        return
+    if not event.is_action_pressed(advance_action):
+        return
+    get_viewport().set_input_as_handled()   # ← required
+    ...
+```
+
+---
+
+## Dialogue + CONNECT_ONE_SHOT — already-connected guard
+
+When a room glue script connects `dialogue_finished` with `CONNECT_ONE_SHOT` inside an `interacted` handler, the connection is only removed after the signal actually fires (i.e., after the player reads to the last line). If the player opens the dialogue, closes it early (scene transition, other means), and then opens it again, the second `connect()` call throws:
+
+```
+ERROR: Signal 'dialogue_finished' is already connected to given callable
+```
+
+Guard every CONNECT_ONE_SHOT connection:
+
+```gdscript
+func _on_working_terminal(_i: Node) -> void:
+    $Dialogue.start(WORKING_TERMINAL_LINES)
+    if not $Dialogue.dialogue_finished.is_connected(_on_code_revealed):
+        $Dialogue.dialogue_finished.connect(_on_code_revealed, CONNECT_ONE_SHOT)
+```
+
+---
+
+## Top-down genre — door row boundary
+
+Leaving a door tile as a floor tile (no wall) in the perimeter creates a gap the player can walk through and off the map. The TileMap has no content beyond its defined tile range, so the player exits the playable area with no collision to stop them.
+
+Two safe approaches:
+
+**Option A — interactable one tile inward.** Place the door interactable at tile `(COLS-2, row)` (one tile inside the wall), not at the perimeter. The wall tile at `(COLS-1, row)` remains solid and stops the player. The 48px interaction radius covers the gap.
+
+**Option B — StaticBody2D barrier at the edge.** Keep the door tile as floor but add a thin `StaticBody2D` at x = `COLS * TILE_SIZE` covering the full column height except the door row. This is the same world-boundary pattern used in top-down maps alongside TileMap walls.
